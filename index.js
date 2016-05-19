@@ -2,6 +2,7 @@ var START_LON = -145.0;
 var START_LAT =   40.38;
 var START_ZUM = 4;
 
+var WINDY, CANVAS;
 
 $(document).ready(function () {
     // whoa there! No Canvas, no can do!
@@ -20,84 +21,53 @@ $(document).ready(function () {
 
     initWind();
 
-    MAP.on('movestart',function(){
-        $('#CursorLayer').hide();
-    });
     MAP.on('moveend',function(){
-        $('#CursorLayer').show();
         redrawWind();
     });
 });
 
-
-var windy, GFS_JSON, CANVS, cursorLayer;
 function initWind() {
     $.getJSON("wind-surface-level-gfs.json", function(data) {
-        GFS_JSON = data;
+        var gfsdata = data;
 
-        var CANVS = document.createElement('canvas');
+        CANVAS = document.createElement('canvas');
 
-        CANVS.id = "CursorLayer";
-        CANVS.width = $('#map').width();
-        CANVS.height = $('#map').height();
-        CANVS.style.zIndex = 9;
-        CANVS.style.position = "absolute";
-        //CANVS.style.border = "3px solid red";
+        CANVAS.id = "CursorLayer";
+        CANVAS.width = $('#map').width();
+        CANVAS.height = $('#map').height();
+        CANVAS.style.zIndex = 9;
+        CANVAS.style.position = "absolute";
+        document.getElementById("map").appendChild(CANVAS);
 
-        var body = document.getElementById("map");
-        body.appendChild(CANVS);
+        WINDY = new Windy({ canvas: CANVAS, data: gfsdata });
 
-        /*CANVS = $('<div id="CursorLayer" style="position: absolute;"></div>').width( $('#map').width() ).height( $('#map').height() );
-
-        $('#map').append(CANVS);
-        */
-        cursorLayer = document.getElementById("CursorLayer");
-
-        windy = new Windy({ canvas: CANVS, data: GFS_JSON });
-        //windy = new Windy({ canvas: cursorLayer, data: GFS_JSON });
-
-        var bnds = MAP.getBounds();
-
-        setTimeout(function(){
-            windy.start(
-              [[0,0],[$('#map').width(), $('#map').height()]], 
-              $('#map').width(), 
-              $('#map').height(), 
-              [[bnds.getWest(), bnds.getSouth()],[bnds.getEast(), bnds.getNorth()]]
-            );
-          },5000);  
-    
+        // and kick it off!
         redrawWind();
-
     });
 }
 
-
 function redrawWind(){
-    //console.log('redrawWind');
-    windy.stop();
-    
-    var bnds = MAP.getBounds();
-    var z = MAP.getZoom();
+    WINDY.stop();
 
-    // no: $('#CursorLayer').width( $('#map').width() ).height( $('#map').height() );
-    $('#CursorLayer').attr('width', $('#map').width() ).attr('height', $('#map').height() );
-    
-    // empirical tests at z={3,6,9} with linear or power curve fit
-    //VELOCITY_SCALE = 1/ (6800 * z * z);             // scale for wind velocity (completely arbitrary--this value looks nice)
+    var bnds   = MAP.getBounds();
+    var z      = MAP.getZoom();
+    var width  = $('#map').width();
+    var height = $('#map').height();
+
+    CANVAS.width  = width;
+    CANVAS.height = $('#map').height();
+
     VELOCITY_SCALE = 1/ (3400 * z * z);             // scale for wind velocity (completely arbitrary--this value looks nice)
-    PARTICLE_LINE_WIDTH = 0.167*z + 0.267;              // line width of a drawn particle
-    PARTICLE_MULTIPLIER = 32 * Math.pow(z,-1.28);              // particle count scalar (completely arbitrary--test)
-    PARTICLE_REDUCTION = 11.5 * Math.pow(z,-2.4);              // reduce particle count to this much of normal for mobile devices
-    MAX_WIND_INTENSITY = 10;              // wind velocity at which particle intensity is maximum (m/s)
-    MAX_PARTICLE_AGE = 10;                // max number of frames a particle is drawn before regeneration
+    PARTICLE_LINE_WIDTH = 0.167*z + 0.267;          // line width of a drawn particle
+    PARTICLE_MULTIPLIER = 32 * Math.pow(z,-1.28);   // particle count scalar (completely arbitrary--test)
+    PARTICLE_REDUCTION = 11.5 * Math.pow(z,-2.4);   // reduce particle count to this much of normal for mobile devices
+    MAX_WIND_INTENSITY = 10;                        // wind velocity at which particle intensity is maximum (m/s)
+    MAX_PARTICLE_AGE = 10;                          // max number of frames a particle is drawn before regeneration
 
-    setTimeout(function(){
-        windy.start(
-          [[0,0],[$('#map').width(), $('#map').height()]], 
-          $('#map').width(), 
-          $('#map').height(), 
-          [[bnds.getWest(), bnds.getSouth()],[bnds.getEast(), bnds.getNorth()]]
-        );
-      },500);  
+    WINDY.start(
+        [[0,0],[width, height]],
+        width, 
+        height, 
+        [[bnds.getWest(), bnds.getSouth()],[bnds.getEast(), bnds.getNorth()]]
+    );
 }
